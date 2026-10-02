@@ -63,7 +63,7 @@ HTML_TEMPLATE = """
 <body>
     <div class="card">
         <h1>👋 Hello, World!</h1>
-        <p>歡迎來到使用 <strong>Python Flask</strong> 建立的一頁式網站。</p>
+        <p>歡迎來到使用 <strong>Python Flask</strong> 建立的一頁式網站。 製作者:季振忠</p>
         <span class="badge">Flask Web App</span>
     </div>
 </body>
