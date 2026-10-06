@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+
+{% block title %}後台營運儀表板 - 訂單管理系統{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold mb-1"><i class="bi bi-graph-up-arrow me-2 text-primary"></i>後台營運儀表板</h2>
+        <p class="text-muted small mb-0">即時監控營收、有效訂單、月度趨勢與熱銷分析（已扣除「已取消」訂單）</p>
+    </div>
+    <div>
+        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary px-3 py-2 rounded-pill fs-6">
+            <i class="bi bi-clock me-1"></i>最後即時更新：{{ current_time }}
+        </span>
+    </div>
+</div>
+
+<!-- 1. 上方 4 張 KPI 卡片 (響應式：手機單欄 col-12，平板 col-sm-6，電腦 col-lg-3) -->
+<div class="row g-3 mb-4">
+    <div class="col-12 col-sm-6 col-lg-3">
+        <div class="card p-3 border-0 shadow-sm bg-white h-100">
+            <div class="d-flex align-items-center">
+                <div class="rounded-3 p-3 bg-success bg-opacity-10 text-success me-3">
+                    <i class="bi bi-currency-dollar fs-2"></i>
+                </div>
+                <div>
+                    <h6 class="text-muted mb-1 small fw-semibold">累計營收 (有效)</h6>
+                    <h3 class="fw-bold mb-0 text-success">NT$ {{ "{:,}".format(total_revenue) }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-lg-3">
+        <div class="card p-3 border-0 shadow-sm bg-white h-100">
+            <div class="d-flex align-items-center">
+                <div class="rounded-3 p-3 bg-primary bg-opacity-10 text-primary me-3">
+                    <i class="bi bi-bag-check-fill fs-2"></i>
+                </div>
+                <div>
+                    <h6 class="text-muted mb-1 small fw-semibold">有效訂單數</h6>
+                    <h3 class="fw-bold mb-0 text-primary">{{ "{:,}".format(valid_orders) }} 筆</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-lg-3">
+        <div class="card p-3 border-0 shadow-sm bg-white h-100">
+            <div class="d-flex align-items-center">
+                <div class="rounded-3 p-3 bg-warning bg-opacity-10 text-warning me-3">
+                    <i class="bi bi-calculator-fill fs-2"></i>
+                </div>
+                <div>
+                    <h6 class="text-muted mb-1 small fw-semibold">平均客單價</h6>
+                    <h3 class="fw-bold mb-0 text-dark">NT$ {{ "{:,}".format(avg_order_value) }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-lg-3">
+        <div class="card p-3 border-0 shadow-sm bg-white h-100">
+            <div class="d-flex align-items-center">
+                <div class="rounded-3 p-3 bg-info bg-opacity-10 text-info me-3">
+                    <i class="bi bi-people-fill fs-2"></i>
+                </div>
+                <div>
+                    <h6 class="text-muted mb-1 small fw-semibold">總客戶數</h6>
+                    <h3 class="fw-bold mb-0 text-info">{{ "{:,}".format(total_customers) }} 人</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 2. 圖表區域: 每月營收趨勢 (折線圖) & 訂單狀態分布 (環圈圖) -->
+<div class="row g-4 mb-4">
+    <div class="col-12 col-lg-8">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-white py-3">
+                <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-graph-up text-primary me-2"></i>每月營收趨勢圖 (已扣除已取消訂單)</h5>
+            </div>
+            <div class="card-body p-4">
+                <div style="height: 320px; position: relative;">
+                    <canvas id="revenueLineChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-lg-4">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-white py-3">
+                <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-pie-chart-fill text-primary me-2"></i>訂單狀態分布比例</h5>
+            </div>
+            <div class="card-body p-4 d-flex align-items-center justify-content-center">
+                <div style="height: 280px; width: 100%; position: relative;">
+                    <canvas id="statusDoughnutChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 3. 熱銷商品 Top 5 & 客戶消費排行 Top 5 -->
+<div class="row g-4 mb-4">
+    <div class="col-12 col-lg-6">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-fire text-danger me-2"></i>熱銷商品排行榜 Top 5</h5>
+                <span class="badge bg-light text-muted border">依有效售出數量</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4">排名</th>
+                                <th>商品名稱</th>
+                                <th class="text-center">售出數量</th>
+                                <th class="text-end pe-4">累積營收</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in top_products %}
+                            <tr>
+                                <td class="ps-4">
+                                    {% if loop.index == 1 %}
+                                        <span class="badge bg-warning text-dark rounded-circle px-2 py-1">🥇 1</span>
+                                    {% elif loop.index == 2 %}
+                                        <span class="badge bg-secondary text-white rounded-circle px-2 py-1">🥈 2</span>
+                                    {% elif loop.index == 3 %}
+                                        <span class="badge bg-danger bg-opacity-75 text-white rounded-circle px-2 py-1">🥉 3</span>
+                                    {% else %}
+                                        <span class="badge bg-light text-dark rounded-circle px-2 py-1">{{ loop.index }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="fw-bold text-dark">{{ p.name }}</td>
+                                <td class="text-center"><span class="badge bg-primary bg-opacity-10 text-primary border px-3 py-1 fw-bold fs-6">{{ p.total_qty }} 件</span></td>
+                                <td class="text-end pe-4 fw-bold text-success">NT$ {{ "{:,}".format(p.total_revenue) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center py-4 text-muted">尚無商品銷售紀錄</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-6">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-trophy-fill text-warning me-2"></i>客戶消費排行榜 Top 5</h5>
+                <span class="badge bg-light text-muted border">依有效消費總額</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4">排名</th>
+                                <th>客戶名稱</th>
+                                <th class="text-center">有效訂單數</th>
+                                <th class="text-end pe-4">消費總金額</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c in top_customers %}
+                            <tr>
+                                <td class="ps-4">
+                                    {% if loop.index == 1 %}
+                                        <span class="badge bg-warning text-dark rounded-circle px-2 py-1">🥇 1</span>
+                                    {% elif loop.index == 2 %}
+                                        <span class="badge bg-secondary text-white rounded-circle px-2 py-1">🥈 2</span>
+                                    {% elif loop.index == 3 %}
+                                        <span class="badge bg-danger bg-opacity-75 text-white rounded-circle px-2 py-1">🥉 3</span>
+                                    {% else %}
+                                        <span class="badge bg-light text-dark rounded-circle px-2 py-1">{{ loop.index }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="fw-bold text-dark">{{ c.name }}</td>
+                                <td class="text-center"><span class="badge bg-info bg-opacity-10 text-info border px-3 py-1 fw-bold fs-6">{{ c.order_count }} 筆</span></td>
+                                <td class="text-end pe-4 fw-bold text-primary">NT$ {{ "{:,}".format(c.total_spent) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center py-4 text-muted">尚無客戶消費紀錄</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- 載入 Chart.js 繪製高質感統計圖表 -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 1. 渲染每月營收趨勢折線圖
+        const lineCtx = document.getElementById('revenueLineChart').getContext('2d');
+        const monthLabels = {{ month_labels | tojson }};
+        const monthData = {{ month_data | tojson }};
+
+        new Chart(lineCtx, {
+            type: 'line',
+            data: {
+                labels: monthLabels,
+                datasets: [{
+                    label: '月度營收 (NT$)',
+                    data: monthData,
+                    borderColor: '#4318ff',
+                    backgroundColor: 'rgba(67, 24, 255, 0.1)',
+                    fill: true,
+                    tension: 0.35,
+                    borderWidth: 3,
+                    pointBackgroundColor: '#4318ff',
+                    pointRadius: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: true, position: 'top' },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return ' 月營收: NT$ ' + context.parsed.y.toLocaleString();
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return 'NT$ ' + value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // 2. 渲染訂單狀態分布環圈圖 (Doughnut Chart)
+        const doughnutCtx = document.getElementById('statusDoughnutChart').getContext('2d');
+        const statusLabels = {{ status_labels | tojson }};
+        const statusData = {{ status_data | tojson }};
+
+        new Chart(doughnutCtx, {
+            type: 'doughnut',
+            data: {
+                labels: statusLabels,
+                datasets: [{
+                    data: statusData,
+                    backgroundColor: ['#ffb547', '#00c5ff', '#01b574', '#ee5d50'],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

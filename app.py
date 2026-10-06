@@ -71,47 +71,108 @@ def logout():
     return redirect(url_for("login"))
 
 # ---------------------------------------------------------
-# 儀表板 / 首頁 Route (需要管理員權限)
+# 後台營運儀表板 Route /admin (需要管理員權限)
 # ---------------------------------------------------------
 @app.route("/")
 @login_required
 def index():
+    return redirect(url_for("admin_dashboard"))
+
+@app.route("/admin")
+@login_required
+def admin_dashboard():
     conn = get_db()
     cursor = conn.cursor()
 
-    # 1. 參數化與安全性統計查詢
-    cursor.execute("SELECT COUNT(*) AS total FROM orders;")
-    total_orders = cursor.fetchone()["total"]
+    # 1. 四張 KPI 卡片 (「已取消」的訂單不列入計算)
+    cursor.execute("""
+        SELECT COALESCE(SUM(oi.quantity * oi.unit_price), 0) AS total_revenue,
+               COUNT(DISTINCT o.order_id) AS valid_orders
+        FROM orders o
+        JOIN order_item oi ON o.order_id = oi.order_id
+        WHERE o.status != '已取消';
+    """)
+    kpi_res = cursor.fetchone()
+    total_revenue = kpi_res["total_revenue"]
+    valid_orders = kpi_res["valid_orders"]
 
+    # 平均客單價 (有效營收 / 有效訂單數)
+    avg_order_value = int(total_revenue / valid_orders) if valid_orders > 0 else 0
+
+    # 總客戶數
     cursor.execute("SELECT COUNT(*) AS total FROM customer;")
     total_customers = cursor.fetchone()["total"]
 
-    cursor.execute("SELECT COUNT(*) AS total FROM product;")
-    total_products = cursor.fetchone()["total"]
-
-    cursor.execute("SELECT COALESCE(SUM(quantity * unit_price), 0) AS total FROM order_item;")
-    total_revenue = cursor.fetchone()["total"]
-
-    # 2. 最新 5 筆訂單
+    # 2. 每月營收趨勢圖 (折線圖，排除已取消訂單)
     cursor.execute("""
-        SELECT o.order_id, o.order_code, c.name AS customer_name, o.order_date, o.status, o.salesperson,
-               COALESCE(SUM(oi.quantity * oi.unit_price), 0) AS total_amount
+        SELECT strftime('%Y-%m', o.order_date) AS month,
+               COALESCE(SUM(oi.quantity * oi.unit_price), 0) AS monthly_revenue
         FROM orders o
-        JOIN customer c ON o.customer_id = c.customer_id
-        LEFT JOIN order_item oi ON o.order_id = oi.order_id
-        GROUP BY o.order_id
-        ORDER BY o.order_id DESC
+        JOIN order_item oi ON o.order_id = oi.order_id
+        WHERE o.status != '已取消'
+        GROUP BY month
+        ORDER BY month ASC;
+    """)
+    month_rows = cursor.fetchall()
+    month_labels = [row["month"] for row in month_rows]
+    month_data = [row["monthly_revenue"] for row in month_rows]
+
+    # 3. 訂單狀態分布 (環圈圖)
+    cursor.execute("""
+        SELECT status, COUNT(*) AS count
+        FROM orders
+        GROUP BY status;
+    """)
+    status_rows = cursor.fetchall()
+    status_map = {row["status"]: row["count"] for row in status_rows}
+    status_labels = ["處理中", "已出貨", "已完成", "已取消"]
+    status_data = [status_map.get(lbl, 0) for lbl in status_labels]
+
+    # 4. 熱銷商品 Top 5 (排除已取消訂單)
+    cursor.execute("""
+        SELECT p.name,
+               SUM(oi.quantity) AS total_qty,
+               SUM(oi.quantity * oi.unit_price) AS total_revenue
+        FROM order_item oi
+        JOIN product p ON oi.product_id = p.product_id
+        JOIN orders o ON oi.order_id = o.order_id
+        WHERE o.status != '已取消'
+        GROUP BY p.product_id
+        ORDER BY total_qty DESC
         LIMIT 5;
     """)
-    recent_orders = cursor.fetchall()
+    top_products = cursor.fetchall()
+
+    # 5. 客戶消費排行 Top 5 (排除已取消訂單)
+    cursor.execute("""
+        SELECT c.name,
+               COUNT(DISTINCT o.order_id) AS order_count,
+               SUM(oi.quantity * oi.unit_price) AS total_spent
+        FROM orders o
+        JOIN customer c ON o.customer_id = c.customer_id
+        JOIN order_item oi ON o.order_id = oi.order_id
+        WHERE o.status != '已取消'
+        GROUP BY c.customer_id
+        ORDER BY total_spent DESC
+        LIMIT 5;
+    """)
+    top_customers = cursor.fetchall()
     conn.close()
 
-    return render_template("index.html",
-                           total_orders=total_orders,
+    current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    return render_template("admin_dashboard.html",
                            total_revenue=total_revenue,
+                           valid_orders=valid_orders,
+                           avg_order_value=avg_order_value,
                            total_customers=total_customers,
-                           total_products=total_products,
-                           recent_orders=recent_orders)
+                           month_labels=month_labels,
+                           month_data=month_data,
+                           status_labels=status_labels,
+                           status_data=status_data,
+                           top_products=top_products,
+                           top_customers=top_customers,
+                           current_time=current_time)
 
 # ---------------------------------------------------------
 # 客戶管理 Routes (參數化查詢 + 管理員權限)
