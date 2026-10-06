@@ -6,9 +6,16 @@ import qrcode
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 
+import os
+from init_db import init_db
+
 app = Flask(__name__)
 app.secret_key = "secret_orders_app_key_2026"
 DB_NAME = "orders.db"
+
+# 若資料庫檔不存在，自動初始化 orders.db
+if not os.path.exists(DB_NAME):
+    init_db()
 
 def get_db():
     conn = sqlite3.connect(DB_NAME)
