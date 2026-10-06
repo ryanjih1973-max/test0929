@@ -33,7 +33,7 @@
                 <tbody>
                     {% for order in orders %}
                     <tr>
-                        <td class="ps-4 fw-bold">#{{ order.order_id }}</td>
+                        <td class="ps-4 fw-bold text-primary">{{ order.order_code }}</td>
                         <td>
                             <div class="fw-bold text-dark">{{ order.customer_name }}</div>
                             <small class="text-muted"><i class="bi bi-telephone me-1"></i>{{ order.customer_phone or '' }}</small>

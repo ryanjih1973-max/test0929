@@ -92,7 +92,7 @@
                 <tbody>
                     {% for order in recent_orders %}
                     <tr>
-                        <td class="ps-4 fw-bold">#{{ order.order_id }}</td>
+                        <td class="ps-4 fw-bold text-primary">{{ order.order_code }}</td>
                         <td>{{ order.customer_name }}</td>
                         <td><small class="text-muted">{{ order.order_date }}</small></td>
                         <td>{{ order.salesperson or '未指定' }}</td>

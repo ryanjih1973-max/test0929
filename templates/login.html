@@ -12,7 +12,7 @@
                         <i class="bi bi-shield-lock-fill fs-2"></i>
                     </div>
                     <h3 class="fw-bold">管理員登入</h3>
-                    <p class="text-muted small">請輸入管理員帳號與密碼以繼續</p>
+                    <p class="text-muted small">系統受權限保護，請驗證身份以繼續</p>
                 </div>
 
                 <form method="POST" action="{{ url_for('login') }}">
@@ -20,7 +20,7 @@
                         <label for="username" class="form-label fw-semibold">帳號</label>
                         <div class="input-group">
                             <span class="input-group-text bg-light border-end-0"><i class="bi bi-person text-muted"></i></span>
-                            <input type="text" class="form-label form-control border-start-0 bg-light" id="username" name="username" placeholder="請輸入帳號 (預設: admin)" required autofocus>
+                            <input type="text" class="form-control border-start-0 bg-light" id="username" name="username" placeholder="請輸入管理員帳號" required autofocus>
                         </div>
                     </div>
 
@@ -28,7 +28,7 @@
                         <label for="password" class="form-label fw-semibold">密碼</label>
                         <div class="input-group">
                             <span class="input-group-text bg-light border-end-0"><i class="bi bi-key text-muted"></i></span>
-                            <input type="password" class="form-control border-start-0 bg-light" id="password" name="password" placeholder="請輸入密碼 (預設: admin123)" required>
+                            <input type="password" class="form-control border-start-0 bg-light" id="password" name="password" placeholder="請輸入管理員密碼" required>
                         </div>
                     </div>
 
@@ -38,14 +38,6 @@
                         </button>
                     </div>
                 </form>
-
-                <div class="mt-4 p-3 bg-light rounded-3 small border">
-                    <span class="fw-bold text-dark"><i class="bi bi-info-circle text-primary me-1"></i>測試帳號資訊：</span>
-                    <ul class="mb-0 mt-1 ps-3 text-secondary">
-                        <li>帳號：<code>admin</code></li>
-                        <li>密碼：<code>admin123</code></li>
-                    </ul>
-                </div>
             </div>
         </div>
     </div>
