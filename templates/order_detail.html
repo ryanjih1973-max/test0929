@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}出貨單 #{{ order.order_id }} - 訂單管理系統{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-9">
+        
+        <!-- 頂部操作按鈕列 (列印時隱藏) -->
+        <div class="d-flex justify-content-between align-items-center mb-4 no-print">
+            <a href="{{ url_for('orders') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>返回訂單列表
+            </a>
+            <div>
+                <button onclick="window.print();" class="btn btn-primary shadow-sm me-2">
+                    <i class="bi bi-printer-fill me-1"></i>列印出貨單
+                </button>
+            </div>
+        </div>
+
+        <!-- 出貨單列印區域 -->
+        <div class="card shadow border-0 rounded-4 overflow-hidden mb-5">
+            <div class="card-header bg-dark text-white p-4 d-flex justify-content-between align-items-center">
+                <div>
+                    <h3 class="fw-bold mb-1"><i class="bi bi-box-seam me-2 text-warning"></i>正式出貨單 (Shipping Label)</h3>
+                    <span class="text-light opacity-75">訂單編號：#{{ order.order_id }}</span>
+                </div>
+                <div>
+                    {% if order.status == '處理中' %}
+                        <span class="badge badge-processing fs-6 px-3 py-2 rounded-pill">⏳ 處理中</span>
+                    {% elif order.status == '已出貨' %}
+                        <span class="badge badge-shipped fs-6 px-3 py-2 rounded-pill">🚚 已出貨</span>
+                    {% elif order.status == '已完成' %}
+                        <span class="badge badge-completed fs-6 px-3 py-2 rounded-pill">✅ 已完成</span>
+                    {% elif order.status == '已取消' %}
+                        <span class="badge badge-cancelled fs-6 px-3 py-2 rounded-pill">❌ 已取消</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card-body p-4 p-md-5 bg-white">
+                <!-- 客戶與出貨 QRCode 資訊 -->
+                <div class="row mb-4 pb-4 border-bottom align-items-center">
+                    <div class="col-md-8 mb-3 mb-md-0">
+                        <h5 class="fw-bold text-dark mb-3"><i class="bi bi-person-bounding-box text-primary me-2"></i>收件人 / 客戶資訊</h5>
+                        <table class="table table-sm table-borderless text-secondary">
+                            <tr>
+                                <th style="width: 100px;" class="text-dark">客戶姓名：</th>
+                                <td class="fs-5 fw-bold text-dark">{{ order.customer_name }}</td>
+                            </tr>
+                            <tr>
+                                <th class="text-dark">聯絡電話：</th>
+                                <td>{{ order.customer_phone or '無紀錄' }}</td>
+                            </tr>
+                            <tr>
+                                <th class="text-dark">配送地址：</th>
+                                <td class="fw-bold text-dark">{{ order.customer_address or '無紀錄' }}</td>
+                            </tr>
+                            <tr>
+                                <th class="text-dark">訂單日期：</th>
+                                <td>{{ order.order_date }}</td>
+                            </tr>
+                            <tr>
+                                <th class="text-dark">負責業務：</th>
+                                <td>{{ order.salesperson or '無指定' }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <!-- QRCode 區塊 -->
+                    <div class="col-md-4 text-center">
+                        <div class="p-3 bg-light rounded-4 border d-inline-block">
+                            <img src="{{ qr_code_url }}" alt="Order QRCode" class="img-fluid" style="max-width: 160px;">
+                            <div class="mt-2 text-muted fw-bold small">掃描驗證出貨單</div>
+                            <code class="small text-primary">#{{ order.order_id }}</code>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 商品明細表格 -->
+                <h5 class="fw-bold text-dark mb-3"><i class="bi bi-list-check text-primary me-2"></i>採購商品明細表</h5>
+                <div class="table-responsive mb-4">
+                    <table class="table table-bordered align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="text-center" style="width: 60px;">項次</th>
+                                <th>商品名稱</th>
+                                <th>分類</th>
+                                <th class="text-end">下單時單價 (NT$)</th>
+                                <th class="text-center">數量</th>
+                                <th class="text-end">小計 (NT$)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in items %}
+                            <tr>
+                                <td class="text-center text-muted fw-bold">{{ loop.index }}</td>
+                                <td class="fw-bold text-dark">{{ item.product_name }}</td>
+                                <td><span class="badge bg-light text-secondary border">{{ item.category or '通用' }}</span></td>
+                                <td class="text-end">NT$ {{ "{:,}".format(item.unit_price) }}</td>
+                                <td class="text-center fw-bold fs-6">{{ item.quantity }}</td>
+                                <td class="text-end fw-bold text-primary">NT$ {{ "{:,}".format(item.subtotal) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="5" class="text-end fw-bold fs-5">訂單總金額 (Grand Total)：</td>
+                                <td class="text-end fw-bold fs-4 text-danger">NT$ {{ "{:,}".format(total_amount) }}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                <!-- 出貨簽收欄位 (供列印簽收) -->
+                <div class="row mt-5 pt-3 border-top text-secondary small">
+                    <div class="col-4">
+                        <p class="mb-5">檢貨員簽章：__________________</p>
+                    </div>
+                    <div class="col-4">
+                        <p class="mb-5">包裝員簽章：__________________</p>
+                    </div>
+                    <div class="col-4">
+                        <p class="mb-5">客戶簽收章：__________________</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

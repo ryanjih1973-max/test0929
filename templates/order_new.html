@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}新增訂單 - 訂單管理系統{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="fw-bold mb-1"><i class="bi bi-cart-plus-fill me-2 text-primary"></i>建立新訂單</h2>
+                <p class="text-muted small mb-0">請選擇客戶、指定業務人員，並一次勾選多項欲採購之商品與數量</p>
+            </div>
+            <a href="{{ url_for('orders') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>返回訂單列表
+            </a>
+        </div>
+
+        <form action="{{ url_for('new_order') }}" method="POST" id="newOrderForm">
+            <!-- 訂單基本資訊卡片 -->
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-white py-3">
+                    <h5 class="fw-bold mb-0 text-primary"><i class="bi bi-person-lines-fill me-2"></i>基本資料</h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="customer_id" class="form-label fw-bold">選擇客戶 *</label>
+                            <select class="form-select form-select-lg border-2" id="customer_id" name="customer_id" required>
+                                <option value="" disabled selected>-- 請選擇客戶 --</option>
+                                {% for c in customers %}
+                                <option value="{{ c.customer_id }}">{{ c.name }} (電話: {{ c.phone or '無' }} | 地址: {{ c.address or '無' }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="salesperson" class="form-label fw-bold">業務人員</label>
+                            <input type="text" class="form-control form-control-lg" id="salesperson" name="salesperson" placeholder="請輸入業務人員姓名 (例如: 陳大為)">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 商品複選與數量輸入區塊 -->
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold mb-0 text-primary"><i class="bi bi-box-seam me-2"></i>勾選商品與數量</h5>
+                    <span class="badge bg-info bg-opacity-10 text-info border border-info px-3 py-2">
+                        <i class="bi bi-info-circle me-1"></i>可勾選多項商品，下單時自動儲存當前歷史單價
+                    </span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="ps-4" style="width: 50px;">選擇</th>
+                                    <th>商品名稱</th>
+                                    <th>分類</th>
+                                    <th>當前單價 (NT$)</th>
+                                    <th>可用庫存</th>
+                                    <th style="width: 180px;" class="pe-4">購買數量</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for p in products %}
+                                <tr>
+                                    <td class="ps-4">
+                                        <input class="form-check-input product-checkbox fs-5" type="checkbox" name="product_ids" value="{{ p.product_id }}" id="chk_{{ p.product_id }}" {% if p.stock <= 0 %}disabled{% endif %}>
+                                    </td>
+                                    <td>
+                                        <label class="form-check-label fw-bold text-dark cursor-pointer" for="chk_{{ p.product_id }}">
+                                            {{ p.name }}
+                                        </label>
+                                    </td>
+                                    <td><span class="badge bg-secondary bg-opacity-10 text-secondary px-2 py-1">{{ p.category or '通用' }}</span></td>
+                                    <td class="fw-bold text-primary">NT$ {{ "{:,}".format(p.price) }}</td>
+                                    <td>
+                                        {% if p.stock <= 0 %}
+                                            <span class="badge bg-danger">已售完</span>
+                                        {% elif p.stock <= 5 %}
+                                            <span class="badge bg-warning text-dark">僅剩 {{ p.stock }} 件</span>
+                                        {% else %}
+                                            <span class="badge bg-success bg-opacity-10 text-success border border-success">{{ p.stock }} 件</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="pe-4">
+                                        <input type="number" class="form-control qty-input" name="quantity_{{ p.product_id }}" value="1" min="1" max="{{ p.stock }}" {% if p.stock <= 0 %}disabled{% endif %}>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center py-4 text-muted">無可用商品，請先至「商品管理」新增商品</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 送出按鈕 -->
+            <div class="d-flex justify-content-end mb-5">
+                <a href="{{ url_for('orders') }}" class="btn btn-light me-2 px-4">取消</a>
+                <button type="submit" class="btn btn-primary btn-lg shadow-sm px-5 fw-bold">
+                    <i class="bi bi-check-lg me-1"></i>確認建立訂單
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 驗證提交表單前至少勾選一項商品
+    document.getElementById('newOrderForm').addEventListener('submit', function(e) {
+        const checkboxes = document.querySelectorAll('input[name="product_ids"]:checked');
+        if (checkboxes.length === 0) {
+            e.preventDefault();
+            alert('請至少勾選一項要採購的商品！');
+        }
+    });
+</script>
+{% endblock %}

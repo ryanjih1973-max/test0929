@@ -2,8 +2,9 @@ import sqlite3
 import os
 import sys
 
-# 避免 Windows 主機預設 cp950 編碼印出訊息報錯
-sys.stdout.reconfigure(encoding='utf-8')
+# 避免 Windows 主機預設 CP950 編碼在印出訊息時報錯
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
 
 DB_NAME = "orders.db"
 
@@ -17,6 +18,15 @@ def init_db():
 
     # 啟用外鍵約束
     cursor.execute("PRAGMA foreign_keys = ON;")
+
+    # 0. 建立 admin 管理員表
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS admin (
+        admin_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL
+    );
+    """)
 
     # 1. 建立 customer 資料表
     cursor.execute("""
@@ -46,9 +56,9 @@ def init_db():
         order_id INTEGER PRIMARY KEY AUTOINCREMENT,
         customer_id INTEGER NOT NULL,
         order_date TEXT NOT NULL,
-        status TEXT NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('處理中', '已出貨', '已完成', '已取消')),
         salesperson TEXT,
-        FOREIGN KEY (customer_id) REFERENCES customer(customer_id)
+        FOREIGN KEY (customer_id) REFERENCES customer(customer_id) ON DELETE CASCADE
     );
     """)
 
@@ -60,28 +70,32 @@ def init_db():
         quantity INTEGER NOT NULL CHECK (quantity > 0),
         unit_price INTEGER NOT NULL CHECK (unit_price >= 0),
         PRIMARY KEY (order_id, product_id),
-        FOREIGN KEY (order_id) REFERENCES orders(order_id),
-        FOREIGN KEY (product_id) REFERENCES product(product_id)
+        FOREIGN KEY (order_id) REFERENCES orders(order_id) ON DELETE CASCADE,
+        FOREIGN KEY (product_id) REFERENCES product(product_id) ON DELETE RESTRICT
     );
     """)
 
     print("資料表建立完成！")
 
-    # 插入測試資料 (各 5 筆以上)
-    # 1. 客戶資料 (5 筆)
+    # 插入預設管理員帳號 (admin / admin123)
+    cursor.execute("""
+    INSERT INTO admin (username, password) VALUES ('admin', 'admin123');
+    """)
+
+    # 1. 客戶資料 (5 筆繁體中文)
     customers = [
-        ('王小明', '0912-345-678', '臺北市信義區松智路1號', '2026-01-10'),
-        ('李美玲', '0923-456-789', '新北市板橋區縣民大道二段7號', '2026-01-15'),
-        ('張偉傑', '0934-567-890', '臺中市西屯區台灣大道三段99號', '2026-02-01'),
-        ('陳雅婷', '0945-678-901', '高雄市苓雅區四維三路2號', '2026-02-20'),
-        ('林志豪', '0956-789-012', '新竹市東區光復路二段101號', '2026-03-05')
+        ('王小明', '0912-345-678', '臺北市信義區松智路1號', '2026-01-10 09:00:00'),
+        ('李美玲', '0923-456-789', '新北市板橋區縣民大道二段7號', '2026-01-15 11:30:00'),
+        ('張偉傑', '0934-567-890', '臺中市西屯區台灣大道三段99號', '2026-02-01 14:20:00'),
+        ('陳雅婷', '0945-678-901', '高雄市苓雅區四維三路2號', '2026-02-20 16:45:00'),
+        ('林志豪', '0956-789-012', '新竹市東區光復路二段101號', '2026-03-05 10:15:00')
     ]
     cursor.executemany("""
     INSERT INTO customer (name, phone, address, created_at)
     VALUES (?, ?, ?, ?);
     """, customers)
 
-    # 2. 商品資料 (5 筆)
+    # 2. 商品資料 (5 筆繁體中文)
     products = [
         ('極速筆記型電腦', 35000, 20, '3C電子'),
         ('無線藍牙耳機', 2800, 50, '3C電子'),
@@ -94,7 +108,7 @@ def init_db():
     VALUES (?, ?, ?, ?);
     """, products)
 
-    # 3. 訂單資料 (5 筆)
+    # 3. 訂單資料 (5 筆繁體中文)
     orders = [
         (1, '2026-03-10 10:30:00', '已完成', '陳大為'),
         (2, '2026-03-12 14:15:00', '處理中', '林靜宜'),
@@ -107,12 +121,12 @@ def init_db():
     VALUES (?, ?, ?, ?);
     """, orders)
 
-    # 4. 訂單明細資料 (7 筆，涵蓋 5 筆訂單，訂單 1 與 訂單 2 包含多項商品)
+    # 4. 訂單明細資料 (7 筆明細，涵蓋 5 筆訂單，訂單 1 與 訂單 2 包含多項商品)
     order_items = [
         (1, 1, 1, 35000),  # 訂單 1: 筆電 (1台)
-        (1, 4, 2, 3200),   # 訂單 1: 鍵盤 (2個) -> 訂單 1 含多項商品
+        (1, 4, 2, 3200),   # 訂單 1: 鍵盤 (2個)
         (2, 2, 1, 2800),   # 訂單 2: 耳機 (1個)
-        (2, 5, 1, 12500),  # 訂單 2: 顯示器 (1台) -> 訂單 2 含多項商品
+        (2, 5, 1, 12500),  # 訂單 2: 顯示器 (1台)
         (3, 3, 2, 6500),   # 訂單 3: 辦公椅 (2張)
         (4, 4, 1, 3200),   # 訂單 4: 鍵盤 (1個)
         (5, 2, 3, 2800)    # 訂單 5: 耳機 (3個)
@@ -124,7 +138,7 @@ def init_db():
 
     conn.commit()
     conn.close()
-    print("測試資料插入完成！")
+    print("orders.db 資料庫與測試資料建立完成！")
 
 if __name__ == "__main__":
     init_db()

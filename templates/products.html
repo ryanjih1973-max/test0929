@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}商品管理 - 訂單管理系統{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold mb-1"><i class="bi bi-grid-3x3-gap-fill me-2 text-primary"></i>商品管理</h2>
+        <p class="text-muted small mb-0">管理商品名稱、分類、單價與庫存數量</p>
+    </div>
+    <button class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#addProductModal">
+        <i class="bi bi-plus-lg me-1"></i>新增商品
+    </button>
+</div>
+
+<!-- 商品列表卡片 -->
+<div class="card shadow-sm border-0">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">商品編號</th>
+                        <th>商品名稱</th>
+                        <th>分類</th>
+                        <th>單價 (NT$)</th>
+                        <th>當前庫存</th>
+                        <th class="text-end pe-4">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in products %}
+                    <tr>
+                        <td class="ps-4 fw-bold text-muted">#{{ p.product_id }}</td>
+                        <td class="fw-bold text-dark">{{ p.name }}</td>
+                        <td><span class="badge bg-secondary bg-opacity-20 text-secondary border px-2 py-1">{{ p.category or '通用' }}</span></td>
+                        <td class="fw-bold text-primary">NT$ {{ "{:,}".format(p.price) }}</td>
+                        <td>
+                            {% if p.stock <= 5 %}
+                                <span class="badge bg-danger px-3 py-2"><i class="bi bi-exclamation-triangle me-1"></i>缺貨中 ({{ p.stock }})</span>
+                            {% else %}
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success px-3 py-1">{{ p.stock }} 件</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end pe-4">
+                            <button class="btn btn-sm btn-outline-secondary me-1" data-bs-toggle="modal" data-bs-target="#editProductModal{{ p.product_id }}">
+                                <i class="bi bi-pencil me-1"></i>編輯
+                            </button>
+                            <form action="{{ url_for('delete_product', product_id=p.product_id) }}" method="POST" class="d-inline" onsubmit="return confirm('確定要刪除商品「{{ p.name }}」嗎？');">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+
+                    <!-- 編輯商品 Modal -->
+                    <div class="modal fade" id="editProductModal{{ p.product_id }}" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <form action="{{ url_for('edit_product', product_id=p.product_id) }}" method="POST">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title fw-bold">編輯商品資料</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="mb-3">
+                                            <label class="form-label fw-semibold">商品名稱 *</label>
+                                            <input type="text" class="form-control" name="name" value="{{ p.name }}" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label fw-semibold">分類</label>
+                                            <input type="text" class="form-control" name="category" value="{{ p.category or '' }}">
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label fw-semibold">單價 (NT$) *</label>
+                                                <input type="number" class="form-control" name="price" value="{{ p.price }}" min="0" required>
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label fw-semibold">庫存數量 *</label>
+                                                <input type="number" class="form-control" name="stock" value="{{ p.stock }}" min="0" required>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">取消</button>
+                                        <button type="submit" class="btn btn-primary">儲存變更</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center py-4 text-muted">目前尚無商品資料</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 新增商品 Modal -->
+<div class="modal fade" id="addProductModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="{{ url_for('products') }}" method="POST">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-box-seam me-2 text-primary"></i>新增商品</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">商品名稱 *</label>
+                        <input type="text" class="form-control" name="name" placeholder="例如: 無線藍牙耳機" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">分類</label>
+                        <input type="text" class="form-control" name="category" placeholder="例如: 3C電子">
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">單價 (NT$) *</label>
+                            <input type="number" class="form-control" name="price" placeholder="0" min="0" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">庫存數量 *</label>
+                            <input type="number" class="form-control" name="stock" placeholder="0" min="0" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">新增商品</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
